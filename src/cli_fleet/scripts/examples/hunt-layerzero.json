@@ -1,0 +1,30 @@
+{
+  "meta_team": "hunt-lz",
+  "project_dir": "/media/phantom-orchestrator/Elements1/Ubuntu/bounty-recon",
+  "teams": [
+    {
+      "name": "team-evm-v1",
+      "role": "Hunt V1 EVM contracts — UltraLightNodeV2, Endpoint V1, FPValidator ($15M cap each)",
+      "teammates": 3,
+      "task": "Create an agent team with 3 teammates to hunt Critical bugs in LayerZero V1 EVM contracts. These are the highest-value targets ($15M cap). Contracts: UltraLightNodeV2 (0x4D73AdB72bC3DD368966edD0f0b2148401A178E2, $412.5M TVL), Endpoint V1 (0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675), FPValidator (0x07245eEa05826F5984c7c3C8F478b04892e4df89). Source: /home/phantom-orchestrator/Documents/Bug Bounty/layerzero/LayerZero/contracts/. Run: /home/phantom-orchestrator/bin/hunt-auto evm on each contract. Chase every finding. Focus on fund theft, permanent DoS, nonce manipulation. Post all findings to cross-team mailbox immediately."
+    },
+    {
+      "name": "team-evm-v2",
+      "role": "Hunt V2 EVM protocol contracts — EndpointV2, SendULN302, ReceiveULN302, DVN ($2M cap)",
+      "teammates": 3,
+      "task": "Create an agent team with 3 teammates to hunt Critical/High bugs in LayerZero V2 EVM contracts. Contracts: EndpointV2 (0x1a44076050125825900e736c501f859c50fE728c), SendULN302 (0xBb2ea70C9E858123480642Cf96acbcCE1372dce1), ReceiveULN302 (0xc02Ab410f0734EFa3F14628780e6e695156024C2), DVN (0x589dEDbD617e0CBcB916A9223F4d1300c294236b), SendULN301 (0xD231084BfB234C107D3eE2b22F97F3346fDAF705), ReceiveULN301 (0x245B6e8FFe9ea5Fc301e32d16F66bD4C2123EeFc). Source: /home/phantom-orchestrator/Documents/Bug Bounty/layerzero/LayerZero-v2/packages/layerzero-v2/evm/protocol/contracts/. Run: /home/phantom-orchestrator/bin/hunt-auto evm. Focus on DVN verification bypass, payload hash manipulation, fee accounting bugs."
+    },
+    {
+      "name": "team-crosschain",
+      "role": "Hunt cross-chain exploit chains — encoding mismatches, nonce desync, composed msg attacks ($2M-$15M)",
+      "teammates": 4,
+      "task": "Create an agent team with 4 teammates to hunt cross-chain exploit chains in LayerZero. This is the highest-value unexplored surface. NO single-chain bugs — ONLY cross-chain vectors. One teammate per attack surface: (1) Address encoding mismatches: EVM 20-byte vs Solana 32-byte vs TON 267-bit — test padding/truncation in bytes32 conversion. Wrong recipient = fund loss = Critical. (2) Nonce desync: V2 lazy inbound nonce + out-of-order delivery. Can you brick a channel by delivering messages out of order across chain pairs? (3) Executor gas: EVM gas vs Solana compute units vs TON gas. Force underpayment causing partial lzReceive execution. (4) Composed messages: lzCompose A→B→C chaining. Circular compose, manipulated composed data, orphaned state. Use tools: /home/phantom-orchestrator/bin/t xchain-abi-check, xchain-fuzz, xchain-tracer. All tests MUST use multi-fork harness (srcFork + dstFork)."
+    },
+    {
+      "name": "team-non-evm",
+      "role": "Hunt Solana + TON + Aptos contracts ($2M cap)",
+      "teammates": 3,
+      "task": "Create an agent team with 3 teammates, one per chain. Solana teammate: hunt DVN (4VDjp6XQ), EndpointV2 (76y77prs), SendULN302 (6doghB24), ReceiveULN302 (7a4WjyR8), OFT. Source: /home/phantom-orchestrator/Documents/Bug Bounty/layerzero/LayerZero-v2/packages/layerzero-v2/solana/. Run: /home/phantom-orchestrator/bin/hunt-auto solana. TON teammate: hunt Controller (0:1eb2bb), ULNManager (0:150645), DVNProxy (0:0d122d). Source: .../ton/. Run: /home/phantom-orchestrator/bin/hunt-auto ton. Aptos teammate: hunt Endpoint (0x54ad3d). Source: .../aptos/. Run: /home/phantom-orchestrator/bin/hunt-auto aptos. All: focus on chain-specific bugs that EVM tools miss. Share findings cross-team especially with team-crosschain."
+    }
+  ]
+}

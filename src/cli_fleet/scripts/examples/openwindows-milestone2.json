@@ -1,0 +1,34 @@
+{
+  "meta_team": "ow-m2",
+  "project_dir": "/mnt/win-img/openwindows",
+  "teams": [
+    {
+      "name": "brain-ntdll",
+      "role": "Deep analysis and reimplementation of ntdll functions that real apps need",
+      "mode": "brain-stream",
+      "teammates": 3,
+      "task": "Investigate ntdll.dll functions that PowerShell and real Windows apps import. We have 23 of 2,455 exports implemented. The r2 analysis data is at /mnt/win-img/categorized/deep-analysis/tier-0/ntdll.dll-deep.json. The current implementation is at /mnt/win-img/openwindows/src/ntdll/ntdll.c. Focus on: RtlAllocateHeap, RtlFreeHeap (real heap, not stubs), NtCreateFile/NtOpenFile (already stubbed but need real implementation), RtlInitUnicodeString family, exception handling (RtlVirtualUnwind, RtlCaptureContext — these are called by 32 DLLs). The OpenWindows project runs unmodified Windows binaries on Linux by reimplementing the Win32 API. Start neurons on the highest-import-count functions."
+    },
+    {
+      "name": "brain-advapi32",
+      "role": "Design and implement advapi32.dll — security, registry, service APIs",
+      "mode": "brain-stream",
+      "teammates": 3,
+      "task": "Investigate advapi32.dll for reimplementation. It has 870 exports and is imported by 1,775 binaries. The r2 analysis is at /mnt/win-img/categorized/deep-analysis/tier-1/advapi32.dll-deep.json. PowerShell needs advapi32 for: RegOpenKeyExW/RegQueryValueExW (registry — we have basic stubs in kernelbase/registry.c), security token functions (OpenProcessToken, GetTokenInformation), service control (OpenSCManager, StartService — can stub for now), crypto basics (CryptAcquireContext). The existing registry implementation is at /mnt/win-img/openwindows/src/kernelbase/registry.c. advapi32 on real Windows mostly forwards to kernelbase, so many functions can be thin wrappers. Start neurons on what PowerShell actually imports from advapi32."
+    },
+    {
+      "name": "brain-loader",
+      "role": "Improve the PE loader — LoadLibrary, DLL dependencies, thread creation",
+      "mode": "brain-stream",
+      "teammates": 3,
+      "task": "Investigate what the OpenWindows PE loader needs to run PowerShell and real apps. Current loader at /mnt/win-img/openwindows/src/loader/pe_loader.c can load a single .exe and resolve imports against built-in DLLs. It CANNOT: dynamically load DLLs via LoadLibrary (returns NULL), load dependent DLLs that the .exe imports (only resolves against built-in reimplementations), create threads (CreateThread is stubbed). PowerShell.exe imports from ~30 DLLs. Many of these are api-ms-win-* shims that forward to kernelbase (we handle this). But some are real DLLs we'd need to load from the extracted Windows image: clrjit.dll, mscorlib.dll (.NET), or we need to provide our own. Start neurons on: what does LoadLibraryExW need to do, what DLLs does PowerShell actually need, can we load real Windows DLLs from the extracted image and resolve their imports too."
+    },
+    {
+      "name": "team-fixes",
+      "role": "Fix remaining code review issues and build test infrastructure",
+      "mode": "standard",
+      "teammates": 3,
+      "task": "Fix the remaining issues from the adversarial code review. Issues to fix: (1) _onexit/_initterm callbacks call Win64 function pointers with SysV ABI — need reverse-thunk wrappers in msvcrt.c. (2) ow_signal passes Win64 handler to Linux signal() — make it a no-op stub returning SIG_DFL. (3) Format parser in narrow_format_args() missing %f/%e/%g/%o specifiers and default case doesn't consume args — add float handling and fix arg consumption. (4) thunks.S WIN2LINUX macro can't forward 5+ args — migrate remaining thunks.S functions to use generate_thunk() from thunk_gen.c. (5) Remove startup printf noise from msvcrt registration. All code is at /mnt/win-img/openwindows/. Run bash tests/test_cmd.sh after every fix to verify no regressions."
+    }
+  ]
+}

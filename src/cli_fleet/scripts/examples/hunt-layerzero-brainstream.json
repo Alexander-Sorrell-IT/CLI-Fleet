@@ -1,0 +1,34 @@
+{
+  "meta_team": "hunt-lz-brain",
+  "project_dir": "/media/phantom-orchestrator/Elements1/Ubuntu/bounty-recon",
+  "teams": [
+    {
+      "name": "brain-v1",
+      "role": "V1 EVM core — UltraLightNodeV2 + Endpoint V1 + FPValidator ($15M cap)",
+      "mode": "brain-stream",
+      "teammates": 4,
+      "task": "Run a brain stream on LayerZero V1 EVM core contracts. Spawn 4 neurons: ENTRY starts at Endpoint.send() — how messages enter. TRANSIT starts at ULN.validateTransactionProof() — how messages get validated. PROOF starts at FPValidator.validateProof() — how proofs are checked. DELIVERY starts at Endpoint.receivePayload() — how messages get delivered. Source: /home/phantom-orchestrator/Documents/Bug Bounty/layerzero/LayerZero/contracts/. Focus on: fund theft, permanent DoS, nonce manipulation, proof forgery."
+    },
+    {
+      "name": "brain-v2",
+      "role": "V2 EVM protocol — EndpointV2 + ULN302 + DVN ($2M cap)",
+      "mode": "brain-stream",
+      "teammates": 4,
+      "task": "Run a brain stream on LayerZero V2 EVM contracts. Spawn 4 neurons: SEND starts at SendULN302.send() — outbound message path. RECEIVE starts at ReceiveULN302.commitVerification() — inbound verification. DVN starts at DVN.verify() — DVN attestation logic. ENDPOINT starts at EndpointV2.lzReceive() — delivery + compose. Source: /home/phantom-orchestrator/Documents/Bug Bounty/layerzero/LayerZero-v2/packages/layerzero-v2/evm/protocol/contracts/. Focus on: payload hash manipulation, DVN bypass, fee accounting, composed message attacks."
+    },
+    {
+      "name": "brain-crosschain",
+      "role": "Cross-chain exploit chains — encoding, nonce, gas model mismatches ($2M-$15M)",
+      "mode": "brain-stream",
+      "teammates": 4,
+      "task": "Run a brain stream on cross-chain attack surfaces. Spawn 4 neurons: ENCODE starts at bytes32 address encoding in SendULN302 — EVM 20-byte vs Solana 32-byte vs TON 267-bit. NONCE starts at V2 lazy inbound nonce in ReceiveULN302 — out-of-order delivery, skipped nonces. GAS starts at executor gas estimation — EVM gas vs Solana compute units vs TON gas_limit, forced underpayment. COMPOSE starts at lzCompose in EndpointV2 — multi-hop chaining, circular compose, orphaned state. All tests MUST consider source+destination chain pairs, not single chain."
+    },
+    {
+      "name": "team-tools",
+      "role": "Automated tool runner — runs hunt-auto on all contracts, feeds findings to brains",
+      "mode": "standard",
+      "teammates": 3,
+      "task": "Create an agent team with 3 teammates to run automated security tools on all LayerZero contracts. Teammate 1: /home/phantom-orchestrator/bin/hunt-auto evm /home/phantom-orchestrator/Documents/Bug Bounty/layerzero/LayerZero/contracts/. Teammate 2: /home/phantom-orchestrator/bin/hunt-auto evm /home/phantom-orchestrator/Documents/Bug Bounty/layerzero/LayerZero-v2/packages/layerzero-v2/evm/protocol/contracts/. Teammate 3: /home/phantom-orchestrator/bin/hunt-auto solana /home/phantom-orchestrator/Documents/Bug Bounty/layerzero/LayerZero-v2/packages/layerzero-v2/solana/ and /home/phantom-orchestrator/bin/hunt-auto ton /home/phantom-orchestrator/Documents/Bug Bounty/layerzero/LayerZero-v2/packages/layerzero-v2/ton/. Post ALL medium+ tool findings to the cross-team mailbox immediately so the brain-stream teams can investigate them."
+    }
+  ]
+}
