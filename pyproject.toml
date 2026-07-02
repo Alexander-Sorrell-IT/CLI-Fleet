@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cli-fleet"
-version = "0.1.1"
+version = "0.2.0"
 description = "Launch multiple enforced Claude Code agent teams in parallel terminal windows, hardware-aware, coordinating via a shared filesystem mailbox."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 authors = [{ name = "Alexander Sorrell", email = "codehunterextreme@gmail.com" }]
 keywords = ["claude", "agent-teams", "fleet", "orchestration", "enforcement", "multi-agent"]
-dependencies = ["cli-enforcement>=0.2.0"]
+dependencies = ["cli-enforcement>=0.3.0"]
 
 [project.optional-dependencies]
 test = ["pytest"]

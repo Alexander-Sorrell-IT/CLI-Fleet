@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from importlib import resources
 
 from . import __version__
@@ -98,6 +99,142 @@ def cmd_status(args):
     sys.exit(_run_script("status.sh", [_resolve_team(args.team)]))
 
 
+def _meta_dir():
+    return os.environ.get(
+        "META_TEAM_DIR", os.path.join(os.path.expanduser("~"), ".claude", "meta-teams")
+    )
+
+
+def _load_json(path, default):
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, type(default)) else default
+    except (OSError, json.JSONDecodeError):
+        return default
+
+
+def _team_enforcement(workdir):
+    """Points/tier for a team's project via `cli-enforcement status --json`.
+    Returns None (rendered as n/a) if not deployed or anything goes wrong."""
+    if not workdir or not os.path.isdir(workdir):
+        return None
+    try:
+        proc = subprocess.run(
+            ["cli-enforcement", "status", "--json", "--dir", workdir],
+            capture_output=True, text=True, timeout=15,
+        )
+        if proc.returncode != 0:
+            return None
+        return json.loads(proc.stdout)
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        return None
+
+
+def gather_dashboard(team):
+    """Collect the fleet scorecard data from the meta-team's state files."""
+    dir_ = os.path.join(_meta_dir(), team)
+    registry = _load_json(os.path.join(dir_, "registry.json"), {})
+
+    teams = []
+    for t in registry.get("teams", []):
+        pid = t.get("pid")
+        try:
+            os.kill(int(pid), 0)
+            alive = True
+        except (OSError, TypeError, ValueError):
+            alive = False
+        enf = _team_enforcement(t.get("workdir"))
+        teams.append({
+            "name": t.get("name", "?"),
+            "role": t.get("role", ""),
+            "status": t.get("status", "?"),
+            "pid": pid,
+            "alive": alive,
+            "workdir": t.get("workdir"),
+            "enforcement": None if enf is None else {
+                "points": enf.get("points", {}).get("current"),
+                "tier": enf.get("points", {}).get("tier"),
+                "tier_name": enf.get("points", {}).get("tier_name"),
+                "hard_stop": enf.get("failure", {}).get("hard_stop", False),
+            },
+        })
+
+    mailbox = {}
+    mbox_dir = os.path.join(dir_, "mailbox")
+    try:
+        msgs = [m for m in os.listdir(mbox_dir) if m.endswith(".json")]
+    except OSError:
+        msgs = []
+    for m in msgs:
+        mtype = _load_json(os.path.join(mbox_dir, m), {}).get("type", "unknown")
+        mailbox[mtype] = mailbox.get(mtype, 0) + 1
+
+    try:
+        findings = len([f for f in os.listdir(os.path.join(dir_, "findings")) if f.endswith(".json")])
+    except OSError:
+        findings = 0
+
+    tasks = _load_json(os.path.join(dir_, "tasks.json"), {}).get("tasks", [])
+    task_counts = {}
+    for t in tasks:
+        s = t.get("status", "unknown")
+        task_counts[s] = task_counts.get(s, 0) + 1
+
+    return {
+        "meta_team": team,
+        "dir": dir_,
+        "teams": teams,
+        "mailbox": {"total": len(msgs), "by_type": mailbox},
+        "findings": findings,
+        "tasks": task_counts,
+    }
+
+
+def render_dashboard(data):
+    lines = [f"=== fleet dashboard: {data['meta_team']} ===  ({data['dir']})", ""]
+    lines.append("--- teams ---")
+    if not data["teams"]:
+        lines.append("  (none registered)")
+    for t in data["teams"]:
+        enf = t["enforcement"]
+        if enf is None:
+            score = "enforcement: n/a"
+        else:
+            score = f"pts={enf['points']} T{enf['tier']}:{enf['tier_name']}"
+            if enf["hard_stop"]:
+                score += " HARD_STOP"
+        alive = "✓" if t["alive"] else "✗"
+        lines.append(
+            f"  {t['name']:20s} [{t['status']:8s}] pid={t['pid']} {alive}  {score}  role: {t['role']}"
+        )
+    lines += ["", "--- mailbox ---"]
+    lines.append(f"  {data['mailbox']['total']} messages")
+    for mtype, n in sorted(data["mailbox"]["by_type"].items()):
+        lines.append(f"    {mtype}: {n}")
+    lines += ["", f"--- findings: {data['findings']} ---"]
+    if data["tasks"]:
+        lines += ["", "--- tasks ---"]
+        for s, n in sorted(data["tasks"].items()):
+            lines.append(f"  {s}: {n}")
+    return "\n".join(lines)
+
+
+def cmd_dashboard(args):
+    team = _resolve_team(args.team)
+    if not args.watch:
+        print(render_dashboard(gather_dashboard(team)))
+        return
+    try:
+        while True:
+            print("\033[2J\033[H", end="")  # clear screen, home cursor
+            print(render_dashboard(gather_dashboard(team)))
+            print(f"\n(refreshing every {args.watch}s — Ctrl-C to stop)")
+            time.sleep(args.watch)
+    except KeyboardInterrupt:
+        print()
+
+
 def cmd_send(args):
     team = _resolve_team(args.team)
     sys.exit(_run_script("send.sh", [team, args.frm, args.to, args.type, args.message]))
@@ -130,6 +267,11 @@ def build_parser():
     s = sub.add_parser("status", help="show fleet status")
     s.add_argument("team", nargs="?", help="meta-team name (auto-detected if only one exists)")
     s.set_defaults(func=cmd_status)
+
+    s = sub.add_parser("dashboard", help="fleet scorecard: teams, mailbox, findings + per-team enforcement points")
+    s.add_argument("team", nargs="?", help="meta-team name (auto-detected if only one exists)")
+    s.add_argument("--watch", type=int, metavar="N", help="redraw every N seconds until Ctrl-C")
+    s.set_defaults(func=cmd_dashboard)
 
     s = sub.add_parser("send", help="send a cross-team mailbox message")
     s.add_argument("frm", help="sending team")

@@ -26,6 +26,8 @@ pip install cli-fleet        # pulls in cli-enforcement + cli-wikia
 cli-fleet launch fleet.json            # hardware-gated, auto-enforced launch
 cli-fleet launch fleet.json --background  # use `claude -p` instead of windows
 cli-fleet status [meta-team]           # fleet status (auto-detects if one fleet)
+cli-fleet dashboard [meta-team]        # scorecard: teams, mailbox, findings + per-team enforcement points
+cli-fleet dashboard --watch 5          # redraw every 5s until Ctrl-C
 cli-fleet send team-a team-b "message" --type finding   # cross-team mailbox message (--team to pick fleet)
 cli-fleet cleanup [meta-team]          # tear down (auto-detects if one fleet)
 ```
