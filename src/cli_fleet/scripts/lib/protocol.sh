@@ -2,7 +2,28 @@
 # Multi-team communication protocol — shared functions
 # All teams use the same message format and directory layout.
 
-META_DIR="${META_TEAM_DIR:-$HOME/.claude/meta-teams}"
+# Model-neutral meta-team root. META_TEAM_DIR env wins; otherwise use
+# ~/.cli-fleet/meta-teams, created on first use as a symlink to the legacy
+# ~/.claude/meta-teams if that already exists (fleetcode compat).
+fleet_meta_root() {
+    if [[ -n "${META_TEAM_DIR:-}" ]]; then
+        echo "$META_TEAM_DIR"
+        return
+    fi
+    local new="$HOME/.cli-fleet/meta-teams"
+    local old="$HOME/.claude/meta-teams"
+    if [[ ! -e "$new" && ! -L "$new" ]]; then
+        mkdir -p "$HOME/.cli-fleet"
+        if [[ -d "$old" ]]; then
+            ln -s "$old" "$new"
+        else
+            mkdir -p "$new"
+        fi
+    fi
+    echo "$new"
+}
+
+META_DIR="$(fleet_meta_root)"
 
 # Initialize a meta-team's shared state directory
 meta_init() {
@@ -30,6 +51,7 @@ meta_register_team() {
     local role="$3"
     local pid="$4"
     local workdir="$5"
+    local model="${6:-claude}"
     local dir="$META_DIR/$meta_name"
 
     python3 -c "
@@ -42,6 +64,7 @@ reg['teams'].append({
     'role': '$role',
     'pid': $pid,
     'workdir': '$workdir',
+    'model': '$model',
     'status': 'active',
     'registered': '$(date -Iseconds)'
 })

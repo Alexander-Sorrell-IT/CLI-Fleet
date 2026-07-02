@@ -18,7 +18,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-META_DIR="${META_TEAM_DIR:-$HOME/.claude/meta-teams}"
+META_DIR="${META_TEAM_DIR:-$HOME/.cli-fleet/meta-teams}"
+# (protocol.sh, sourced below, re-resolves META_DIR and creates the
+#  ~/.cli-fleet/meta-teams root / legacy symlink on first use)
 
 print_example() {
     cat <<'EXAMPLE'
@@ -66,6 +68,36 @@ CONFIG="${1:?Usage: $0 <config.json> [--background] | $0 --example}"
 MODE="interactive"
 [[ "${2:-}" == "--background" ]] && MODE="background"
 
+# Per-model spawn command (mirrors cli_fleet/models.py MODEL_SPECS).
+# Prints the command *prefix*; the caller appends the prompt as the last arg.
+# $1 = model, $2 = mode (interactive|background)
+model_spawn_cmd() {
+    local model="$1" mode="$2"
+    case "$model" in
+        claude)
+            if [[ "$mode" == "background" ]]; then echo "claude --dangerously-skip-permissions -p"
+            else echo "claude --dangerously-skip-permissions"; fi ;;
+        gemini)
+            if [[ "$mode" == "background" ]]; then echo "gemini --approval-mode yolo -p"
+            else echo "gemini --approval-mode yolo -i"; fi ;;
+        deepseek)
+            if [[ "$mode" == "background" ]]; then echo "deepseek-code --dangerously-skip-permissions -p"
+            else echo "deepseek-code --dangerously-skip-permissions"; fi ;;
+        copilot)
+            if [[ "$mode" == "background" ]]; then echo "copilot --allow-all-tools --allow-all-paths -p"
+            else echo "copilot --allow-all -i"; fi ;;
+        chatgpt)
+            # NOT verified locally (codex not installed) — flags from the chatgpt wiki.
+            if [[ "$mode" == "background" ]]; then echo "codex exec --full-auto"
+            else echo "codex"; fi ;;
+        antigravity)
+            if [[ "$mode" == "background" ]]; then echo "agy --dangerously-skip-permissions -p"
+            else echo "agy --dangerously-skip-permissions -i"; fi ;;
+        *)
+            echo "" ;;
+    esac
+}
+
 # Parse config
 META_TEAM=$(python3 -c "import json; print(json.load(open('$CONFIG'))['meta_team'])")
 PROJECT_DIR=$(python3 -c "import json; print(json.load(open('$CONFIG'))['project_dir'])")
@@ -100,12 +132,14 @@ for i in $(seq 0 $((NUM_TEAMS - 1))); do
     TEAM_TASK=$(python3 -c "import json; print(json.load(open('$CONFIG'))['teams'][$i]['task'])")
     TEAM_MATES=$(python3 -c "import json; print(json.load(open('$CONFIG'))['teams'][$i].get('teammates', 3))")
     TEAM_MODE=$(python3 -c "import json; print(json.load(open('$CONFIG'))['teams'][$i].get('mode', 'standard'))")
+    TEAM_MODEL=$(python3 -c "import json; print(json.load(open('$CONFIG'))['teams'][$i].get('model', 'claude'))")
 
     echo ""
     echo "--- Setting up $TEAM_NAME ---"
     echo "  Role: $TEAM_ROLE"
     echo "  Teammates: $TEAM_MATES"
     echo "  Mode: $TEAM_MODE"
+    echo "  Model: $TEAM_MODEL"
 
     # Create team workdir
     TEAM_DIR="$SHARED_DIR/workdirs/$TEAM_NAME"
@@ -148,13 +182,18 @@ open('$TEAM_CLAUDE', 'w').write(content)
     # Initialize workdir as a git repo so claude trusts it without prompting
     (cd "$TEAM_DIR" && git init -q 2>/dev/null && git commit --allow-empty -m "init" -q 2>/dev/null) || true
 
-    # Create project-level settings.json with hooks based on mode
+    # Create project-level settings.json with hooks based on mode.
+    # Claude teams only — other models get their mailbox hook merged into
+    # their own hook file (.gemini/settings.json, .clawspring/hooks.json, …)
+    # by `cli-fleet launch` before this script runs.
+    if [[ "$TEAM_MODEL" == "claude" ]]; then
     mkdir -p "$TEAM_DIR/.claude"
+    FLEET_SETTINGS="$TEAM_DIR/.claude/settings.fleet.json"
 
     # Brain-stream mode gets the consciousness bridge + stall detection
     # Standard mode gets the regular mailbox + task hooks
     if [[ "$TEAM_MODE" == "brain-stream" ]]; then
-        cat > "$TEAM_DIR/.claude/settings.json" <<SETTINGS
+        cat > "$FLEET_SETTINGS" <<SETTINGS
 {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
@@ -198,7 +237,7 @@ open('$TEAM_CLAUDE', 'w').write(content)
 }
 SETTINGS
     else
-        cat > "$TEAM_DIR/.claude/settings.json" <<STDSETTINGS
+        cat > "$FLEET_SETTINGS" <<STDSETTINGS
 {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
@@ -242,6 +281,32 @@ SETTINGS
 }
 STDSETTINGS
     fi
+
+    # Merge the fleet settings into any existing settings.json (e.g. the one
+    # cli-enforcement just deployed) instead of clobbering it.
+    python3 - "$TEAM_DIR/.claude/settings.json" "$FLEET_SETTINGS" <<'MERGE'
+import json, os, sys
+dst_path, src_path = sys.argv[1], sys.argv[2]
+with open(src_path) as f:
+    src = json.load(f)
+try:
+    with open(dst_path) as f:
+        dst = json.load(f)
+except (OSError, json.JSONDecodeError):
+    dst = {}
+dst.setdefault("env", {}).update(src.get("env", {}))
+hooks = dst.setdefault("hooks", {})
+for event, groups in src.get("hooks", {}).items():
+    cur = hooks.setdefault(event, [])
+    present = {h.get("command") for g in cur for h in g.get("hooks", [])}
+    for g in groups:
+        if not ({h.get("command") for h in g.get("hooks", [])} & present):
+            cur.append(g)
+with open(dst_path, "w") as f:
+    json.dump(dst, f, indent=2)
+MERGE
+    rm -f "$FLEET_SETTINGS"
+    fi  # TEAM_MODEL == claude
 
     # Install subagent definitions so leads can spawn typed teammates
     mkdir -p "$TEAM_DIR/.claude/agents"
@@ -289,6 +354,15 @@ IMPORTANT CONTEXT:
 
     LOG_FILE="$SHARED_DIR/logs/${TEAM_NAME}.log"
 
+    SPAWN_CMD=$(model_spawn_cmd "$TEAM_MODEL" "$MODE")
+    if [[ -z "$SPAWN_CMD" ]]; then
+        echo "  ERROR: unknown model '$TEAM_MODEL' for $TEAM_NAME — skipping."
+        continue
+    fi
+    if ! command -v "${SPAWN_CMD%% *}" &>/dev/null; then
+        echo "  WARNING: '${SPAWN_CMD%% *}' not found on PATH — $TEAM_NAME may fail to start."
+    fi
+
     if [[ "$MODE" == "interactive" ]]; then
         # Launch in a real terminal window — fully interactive claude session
         echo "  Opening terminal window for $TEAM_NAME..."
@@ -327,11 +401,11 @@ echo \$\$ > "$SHARED_DIR/logs/${TEAM_NAME}.pid"
 
 # Source protocol for completion message
 source "$SCRIPT_DIR/lib/protocol.sh"
-meta_register_team "$META_TEAM" "$TEAM_NAME" "$TEAM_ROLE" \$\$ "$TEAM_DIR"
+meta_register_team "$META_TEAM" "$TEAM_NAME" "$TEAM_ROLE" \$\$ "$TEAM_DIR" "$TEAM_MODEL"
 
-# Launch interactive claude from project dir (already trusted — no folder approval needed)
+# Launch interactive session ($TEAM_MODEL) from project dir
 INIT_MSG=\$(cat "$PROMPT_FILE")
-claude --dangerously-skip-permissions "\$INIT_MSG"
+$SPAWN_CMD "\$INIT_MSG"
 
 # On exit, notify other teams
 meta_send "$META_TEAM" "$TEAM_NAME" "all" "status" "$TEAM_NAME session ended"
@@ -385,8 +459,8 @@ LAUNCH
     fi
 
     if [[ "$MODE" == "background" ]]; then
-        # Background mode — claude -p, no terminal window
-        echo "  Launching background claude session (log: $LOG_FILE)..."
+        # Background mode — headless one-shot, no terminal window
+        echo "  Launching background $TEAM_MODEL session (log: $LOG_FILE)..."
 
         (
             export META_TEAM_NAME="$META_TEAM"
@@ -396,9 +470,9 @@ LAUNCH
             cd "$TEAM_DIR"
 
             source "$SCRIPT_DIR/lib/protocol.sh"
-            meta_register_team "$META_TEAM" "$TEAM_NAME" "$TEAM_ROLE" $$ "$TEAM_DIR"
+            meta_register_team "$META_TEAM" "$TEAM_NAME" "$TEAM_ROLE" $$ "$TEAM_DIR" "$TEAM_MODEL"
 
-            claude --dangerously-skip-permissions -p "$(cat "$PROMPT_FILE")" \
+            $SPAWN_CMD "$(cat "$PROMPT_FILE")" \
                 > "$LOG_FILE" 2>&1
 
             meta_send "$META_TEAM" "$TEAM_NAME" "all" "status" "$TEAM_NAME completed its task"

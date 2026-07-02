@@ -6,4 +6,4 @@ cli-enforcement, which itself uses cli-wikia). The shell scripts are bundled
 verbatim — this layer adds the brains, not a rewrite.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

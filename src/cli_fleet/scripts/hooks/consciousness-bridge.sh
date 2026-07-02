@@ -9,7 +9,8 @@
 
 set -uo pipefail
 
-META_DIR="${META_TEAM_DIR:-$HOME/.claude/meta-teams}"
+META_DIR="${META_TEAM_DIR:-$HOME/.cli-fleet/meta-teams}"
+[[ ! -d "$META_DIR" && -d "$HOME/.claude/meta-teams" ]] && META_DIR="$HOME/.claude/meta-teams"
 META_TEAM="${META_TEAM_NAME:-}"
 TEAM="${TEAM_NAME:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"

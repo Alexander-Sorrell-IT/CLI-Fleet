@@ -11,6 +11,7 @@ import time
 from importlib import resources
 
 from . import __version__
+from . import models as M
 
 
 def _scripts_dir():
@@ -28,9 +29,7 @@ def _resolve_team(team):
     """Return the meta-team name, auto-detecting when not given."""
     if team:
         return team
-    base = os.path.join(
-        os.environ.get("META_TEAM_DIR", os.path.join(os.path.expanduser("~"), ".claude", "meta-teams"))
-    )
+    base = _meta_dir()
     try:
         candidates = sorted(
             d for d in os.listdir(base) if os.path.isdir(os.path.join(base, d))
@@ -73,14 +72,68 @@ def _hardware_gate(config_path, force):
 
 
 def cmd_launch(args):
-    _hardware_gate(args.config, args.force)
+    _, cfg = _hardware_gate(args.config, args.force)
     if not args.no_enforce:
         # Bake hardware + enforcement sections into the config first.
         _run_enforce_fleet(args.config)
+    _prepare_teams(cfg, enforce=not args.no_enforce)
     extra = ["--background"] if args.background else []
     print("launching fleet…")
     rc = _run_script("launch.sh", [os.path.abspath(args.config), *extra])
     sys.exit(rc)
+
+
+def _team_model(team):
+    model = team.get("model", M.DEFAULT_MODEL)
+    if model not in M.MODEL_SPECS:
+        sys.exit(f"unknown model '{model}' for team {team.get('name', '?')} "
+                 f"(known: {', '.join(sorted(M.MODEL_SPECS))})")
+    return model
+
+
+def _deploy_enforcement(model, team_dir):
+    """Run `cli-enforcement deploy <model> --dir <team_dir> --write`."""
+    try:
+        proc = subprocess.run(
+            ["cli-enforcement", "deploy", model, "--dir", team_dir, "--write"],
+            capture_output=True, text=True, timeout=120,
+        )
+        if proc.returncode != 0:
+            print(f"  ⚠ enforcement deploy failed for {model}: {proc.stderr.strip()}")
+            return False
+        return True
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print(f"  ⚠ enforcement deploy unavailable ({e}) — skipping.")
+        return False
+
+
+def _prepare_teams(cfg, enforce=True):
+    """Create each team's workdir, deploy per-model enforcement into it, and
+    merge the mailbox-check hook into the deployed hook file (non-claude models
+    — claude teams get their mailbox hook from launch.sh)."""
+    if cfg is None:
+        return
+    meta = cfg.get("meta_team")
+    if not meta:
+        return
+    hook_script = os.path.join(_scripts_dir(), "hooks", "check-mailbox.sh")
+    for team in cfg.get("teams", []):
+        model = _team_model(team)
+        spec = M.MODEL_SPECS[model]
+        name = team.get("name", "?")
+        if not spec["verified"]:
+            print(f"⚠ {name}: '{model}' launch flags are NOT verified on this "
+                  f"machine (wiki best-effort: {' '.join(spec['headless'])}).")
+        team_dir = os.path.join(_meta_dir(), meta, "workdirs", name)
+        os.makedirs(team_dir, exist_ok=True)
+        if enforce and spec["enforce"]:
+            _deploy_enforcement(model, team_dir)
+        if model != "claude":
+            path = M.inject_mailbox_hook(
+                team_dir, model, f"bash {hook_script}"
+            )
+            if path:
+                print(f"  {name} ({model}): mailbox hook -> {path}")
 
 
 def _run_enforce_fleet(config_path):
@@ -100,9 +153,7 @@ def cmd_status(args):
 
 
 def _meta_dir():
-    return os.environ.get(
-        "META_TEAM_DIR", os.path.join(os.path.expanduser("~"), ".claude", "meta-teams")
-    )
+    return M.meta_root()
 
 
 def _load_json(path, default):
@@ -147,6 +198,7 @@ def gather_dashboard(team):
         enf = _team_enforcement(t.get("workdir"))
         teams.append({
             "name": t.get("name", "?"),
+            "model": t.get("model", "claude"),
             "role": t.get("role", ""),
             "status": t.get("status", "?"),
             "pid": pid,
@@ -206,7 +258,7 @@ def render_dashboard(data):
                 score += " HARD_STOP"
         alive = "✓" if t["alive"] else "✗"
         lines.append(
-            f"  {t['name']:20s} [{t['status']:8s}] pid={t['pid']} {alive}  {score}  role: {t['role']}"
+            f"  {t['name']:20s} {t.get('model', 'claude'):12s} [{t['status']:8s}] pid={t['pid']} {alive}  {score}  role: {t['role']}"
         )
     lines += ["", "--- mailbox ---"]
     lines.append(f"  {data['mailbox']['total']} messages")
