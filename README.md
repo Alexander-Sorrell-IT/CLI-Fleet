@@ -25,10 +25,12 @@ pip install cli-fleet        # pulls in cli-enforcement + cli-wikia
 ```bash
 cli-fleet launch fleet.json            # hardware-gated, auto-enforced launch
 cli-fleet launch fleet.json --background  # use `claude -p` instead of windows
-cli-fleet status                       # fleet status
-cli-fleet send team-a team-b "finding: ..."   # cross-team mailbox message
-cli-fleet cleanup                      # tear down
+cli-fleet status [meta-team]           # fleet status (auto-detects if one fleet)
+cli-fleet send team-a team-b "message" --type finding   # cross-team mailbox message (--team to pick fleet)
+cli-fleet cleanup [meta-team]          # tear down (auto-detects if one fleet)
 ```
+
+Note: `cli-fleet launch` requires Linux with a terminal emulator (gnome-terminal/xterm family) unless `--background` is used.
 
 ## License
 MIT — see [LICENSE](LICENSE).

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import stat
 import subprocess
 import sys
 from importlib import resources
@@ -21,9 +20,30 @@ def _run_script(name, args):
     path = os.path.join(_scripts_dir(), name)
     if not os.path.exists(path):
         sys.exit(f"bundled script missing: {name}")
-    st = os.stat(path)
-    os.chmod(path, st.st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
     return subprocess.run(["bash", path, *args]).returncode
+
+
+def _resolve_team(team):
+    """Return the meta-team name, auto-detecting when not given."""
+    if team:
+        return team
+    base = os.path.join(
+        os.environ.get("META_TEAM_DIR", os.path.join(os.path.expanduser("~"), ".claude", "meta-teams"))
+    )
+    try:
+        candidates = sorted(
+            d for d in os.listdir(base) if os.path.isdir(os.path.join(base, d))
+        )
+    except OSError:
+        candidates = []
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        sys.exit(f"no meta-teams found under {base} — pass a team name (--team).")
+    sys.exit(
+        "multiple meta-teams found — pass a team name (--team):\n  "
+        + "\n  ".join(candidates)
+    )
 
 
 def _hardware_gate(config_path, force):
@@ -75,15 +95,16 @@ def _run_enforce_fleet(config_path):
 
 
 def cmd_status(args):
-    sys.exit(_run_script("status.sh", []))
+    sys.exit(_run_script("status.sh", [_resolve_team(args.team)]))
 
 
 def cmd_send(args):
-    sys.exit(_run_script("send.sh", [args.frm, args.to, args.message]))
+    team = _resolve_team(args.team)
+    sys.exit(_run_script("send.sh", [team, args.frm, args.to, args.type, args.message]))
 
 
 def cmd_cleanup(args):
-    sys.exit(_run_script("cleanup.sh", []))
+    sys.exit(_run_script("cleanup.sh", [_resolve_team(args.team)]))
 
 
 def cmd_where(args):
@@ -107,15 +128,24 @@ def build_parser():
     s.set_defaults(func=cmd_launch)
 
     s = sub.add_parser("status", help="show fleet status")
+    s.add_argument("team", nargs="?", help="meta-team name (auto-detected if only one exists)")
     s.set_defaults(func=cmd_status)
 
     s = sub.add_parser("send", help="send a cross-team mailbox message")
-    s.add_argument("frm")
-    s.add_argument("to")
+    s.add_argument("frm", help="sending team")
+    s.add_argument("to", help="receiving team, or 'all'")
     s.add_argument("message")
+    s.add_argument("--team", "-t", help="meta-team name (auto-detected if only one exists)")
+    s.add_argument(
+        "--type",
+        default="finding",
+        choices=["finding", "task", "question", "status", "directive"],
+        help="message type (default: finding)",
+    )
     s.set_defaults(func=cmd_send)
 
     s = sub.add_parser("cleanup", help="tear down a fleet")
+    s.add_argument("team", nargs="?", help="meta-team name (auto-detected if only one exists)")
     s.set_defaults(func=cmd_cleanup)
 
     s = sub.add_parser("where", help="print the bundled scripts directory")

@@ -48,7 +48,7 @@ fi
 [[ "$FORCE" == "--force" ]] && sleep 2
 
 # Archive findings before cleanup
-FINDINGS_COUNT=$(ls "$DIR/findings/"*.json 2>/dev/null | wc -l)
+FINDINGS_COUNT=$(find "$DIR/findings" -maxdepth 1 -name '*.json' 2>/dev/null | wc -l)
 if [[ $FINDINGS_COUNT -gt 0 ]]; then
     ARCHIVE="$DIR/../${META_TEAM}-findings-$(date +%Y%m%d-%H%M%S).tar.gz"
     tar -czf "$ARCHIVE" -C "$DIR" findings/ 2>/dev/null || true
@@ -56,7 +56,7 @@ if [[ $FINDINGS_COUNT -gt 0 ]]; then
 fi
 
 # Archive logs
-LOG_COUNT=$(ls "$DIR/logs/"*.log 2>/dev/null | wc -l)
+LOG_COUNT=$(find "$DIR/logs" -maxdepth 1 -name '*.log' 2>/dev/null | wc -l)
 if [[ $LOG_COUNT -gt 0 ]]; then
     ARCHIVE="$DIR/../${META_TEAM}-logs-$(date +%Y%m%d-%H%M%S).tar.gz"
     tar -czf "$ARCHIVE" -C "$DIR" logs/ 2>/dev/null || true
