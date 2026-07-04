@@ -14,7 +14,7 @@ keywords = ["claude", "agent-teams", "fleet", "orchestration", "enforcement", "m
 dependencies = ["cli-enforcement>=0.4.0"]
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest", "build"]
 
 [project.urls]
 Homepage = "https://github.com/Alexander-Sorrell-IT/CLI-Enforcement"
