@@ -316,12 +316,16 @@ MERGE
 
     # Fill in placeholders in the agent definitions
     for agent_file in "$TEAM_DIR/.claude/agents/"*.md; do
-        [[ -f "$agent_file" ]] && sed -i \
-            -e "s|{{CONSCIOUSNESS_FILE}}|$CONSCIOUSNESS_FILE|g" \
-            -e "s|{{MULTI_TEAM_DIR}}|$SCRIPT_DIR|g" \
-            -e "s|{{META_TEAM}}|$META_TEAM|g" \
-            -e "s|{{TEAM_NAME}}|$TEAM_NAME|g" \
-            "$agent_file"
+        [[ -f "$agent_file" ]] && python3 -c "
+import sys
+p = sys.argv[1]
+t = open(p).read()
+t = t.replace('{{CONSCIOUSNESS_FILE}}', sys.argv[2])
+t = t.replace('{{MULTI_TEAM_DIR}}',     sys.argv[3])
+t = t.replace('{{META_TEAM}}',          sys.argv[4])
+t = t.replace('{{TEAM_NAME}}',          sys.argv[5])
+open(p, 'w').write(t)
+" "$agent_file" "$CONSCIOUSNESS_FILE" "$SCRIPT_DIR" "$META_TEAM" "$TEAM_NAME"
     done
 
     # Build the initial prompt based on mode
