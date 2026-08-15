@@ -344,6 +344,27 @@ def build_parser():
 
     s = sub.add_parser("where", help="print the bundled scripts directory")
     s.set_defaults(func=cmd_where)
+
+    from . import daemon as DM
+
+    dp = sub.add_parser("daemon", help="monitor a fleet headlessly in the background")
+    dsub = dp.add_subparsers(dest="daemon_cmd", required=True)
+
+    d = dsub.add_parser("start", help="start the daemon (background unless --foreground)")
+    d.add_argument("--team", help="meta-team name to watch (auto-detected if only one exists)")
+    d.add_argument("--foreground", "-f", action="store_true", help="run in foreground")
+    d.set_defaults(func=DM.cmd_start)
+
+    d = dsub.add_parser("stop", help="stop the running daemon")
+    d.set_defaults(func=DM.cmd_stop)
+
+    d = dsub.add_parser("status", help="show whether the daemon is running")
+    d.set_defaults(func=DM.cmd_status)
+
+    d = dsub.add_parser("logs", help="tail the daemon log")
+    d.add_argument("-n", "--lines", type=int, default=40, help="lines to show (default: 40)")
+    d.set_defaults(func=DM.cmd_logs)
+
     return p
 
 
