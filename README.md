@@ -72,4 +72,5 @@ exists, the new root is created as a symlink to it, so old fleets keep working.
 The `dashboard` shows each team's model.
 
 ## License
-MIT — see [LICENSE](LICENSE).
+[PolyForm Noncommercial 1.0.0](LICENSE) — free for noncommercial use.
+Commercial use requires a paid license: matrixbuilderops@proton.me
