@@ -8,23 +8,28 @@ import pytest
 
 from cli_fleet import cli, models as M
 
-ALL_MODELS = ["claude", "gemini", "deepseek", "copilot", "chatgpt", "antigravity"]
+# Models that have full fleet support (headless launch + mailbox + enforcement)
+FLEET_MODELS = ["claude", "gemini", "deepseek", "copilot", "chatgpt", "antigravity"]
+ALL_MODELS = FLEET_MODELS  # backward compat alias
 SCRIPTS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                        "src", "cli_fleet", "scripts")
 
 
 # --- MODEL_SPECS shape --------------------------------------------------------
 
-def test_model_specs_all_six_present():
-    assert sorted(M.MODEL_SPECS) == sorted(ALL_MODELS)
+def test_model_specs_fleet_models_present():
+    """All six original fleet-capable models are still in MODEL_SPECS."""
+    for m in FLEET_MODELS:
+        assert m in M.MODEL_SPECS, f"missing fleet model: {m}"
 
 
-@pytest.mark.parametrize("model", ALL_MODELS)
+@pytest.mark.parametrize("model", FLEET_MODELS)
 def test_model_spec_shape(model):
     spec = M.MODEL_SPECS[model]
     for key in ("binary", "headless", "interactive", "mailbox_event",
                 "hook_file", "nested", "enforce", "verified"):
         assert key in spec, f"{model} missing {key}"
+    assert spec["headless"] is not None, f"{model} has no headless template"
     assert spec["headless"][0] == spec["binary"]
     assert "{prompt}" in spec["headless"]
     assert isinstance(spec["nested"], bool)

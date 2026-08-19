@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cli-fleet"
-version = "0.5.0"
+version = "0.6.0"
 description = "Launch multiple enforced Claude Code agent teams in parallel terminal windows, hardware-aware, coordinating via a shared filesystem mailbox."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 authors = [{ name = "Alexander Sorrell", email = "codehunterextreme@gmail.com" }]
 keywords = ["claude", "agent-teams", "fleet", "orchestration", "enforcement", "multi-agent"]
-dependencies = ["cli-enforcement>=0.4.0"]
+dependencies = ["cli-enforcement>=0.6.0"]
 
 [project.optional-dependencies]
 test = ["pytest", "build"]
@@ -24,7 +24,7 @@ cli-fleet = "cli_fleet.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cli_fleet"]
-artifacts = ["src/cli_fleet/scripts/**/*"]
+artifacts = ["src/cli_fleet/scripts/**/*", "src/cli_fleet/models.json"]
 
 [tool.pytest.ini_options]
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]

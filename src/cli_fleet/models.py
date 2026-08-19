@@ -1,95 +1,50 @@
 """Per-model launch specs for multi-CLI fleets.
 
-Each supported model maps to:
-  - binary:          the executable name
-  - headless:        one-shot command template ({prompt} placeholder)
-  - interactive:     interactive-session command template ({prompt} placeholder)
-  - mailbox_event:   the hook event used to inject cross-team mailbox messages
-  - hook_file:       path (relative to the team workdir) of the hook registry
-                     that cli-enforcement deploys for this model
-  - nested:          True if hook events live under a top-level "hooks" key
-                     (settings.json style); False if events sit at the top
-                     level of the file (Clawspring hooks.json style)
-  - enforce:         cli-enforcement deploy support (all six as of 0.4.0)
-  - verified:        True if the headless flags were verified against the
-                     installed binary's --help + its cli-wikia wiki. When
-                     False the launch prints a warning instead of guessing
-                     silently.
+MODEL_SPECS is now derived from models.json (cli-fleet) via the registry so
+adding a model means editing one file. When cli-collective is installed its
+models.json acts as an override layer. The dict is kept for backward compat
+with code that does MODEL_SPECS[model][field].
 
-Sources: cli-wikia wikis (hooks.md / cli-reference.md / headless*.md per
-model, verified 2026-07) plus `<tool> --help` on this machine.
+Sources: cli-wikia wikis + `<tool> --help` — see each model entry in
+cli-fleet/src/cli_fleet/models.json and cli-enforcement/src/cli_enforcement/models.json.
 """
 from __future__ import annotations
 
 import json
 import os
 
+from . import registry as _reg
+
 DEFAULT_MODEL = "claude"
 
-MODEL_SPECS = {
-    "claude": {
-        "binary": "claude",
-        "headless": ["claude", "--dangerously-skip-permissions", "-p", "{prompt}"],
-        "interactive": ["claude", "--dangerously-skip-permissions", "{prompt}"],
-        "mailbox_event": "UserPromptSubmit",
-        "hook_file": os.path.join(".claude", "settings.json"),
-        "nested": True,
-        "enforce": True,
-        "verified": True,  # claude --help + claude wiki cli-reference.md
-    },
-    "gemini": {
-        "binary": "gemini",
-        "headless": ["gemini", "--approval-mode", "yolo", "-p", "{prompt}"],
-        "interactive": ["gemini", "--approval-mode", "yolo", "-i", "{prompt}"],
-        "mailbox_event": "BeforeAgent",  # fires on prompt submit, can inject context
-        "hook_file": os.path.join(".gemini", "settings.json"),
-        "nested": True,
-        "enforce": True,
-        "verified": True,  # gemini --help + gemini wiki headless.md
-    },
-    "deepseek": {
-        "binary": "deepseek-code",
-        "headless": ["deepseek-code", "--dangerously-skip-permissions", "-p", "{prompt}"],
-        "interactive": ["deepseek-code", "--dangerously-skip-permissions", "{prompt}"],
-        "mailbox_event": "UserPromptSubmit",  # one of Clawspring's 28 Claude-style events
-        "hook_file": os.path.join(".clawspring", "hooks.json"),
-        "nested": False,
-        "enforce": True,
-        "verified": True,  # deepseek-code --help + deepseek wiki cli-reference.md
-    },
-    "copilot": {
-        "binary": "copilot",
-        "headless": ["copilot", "--allow-all-tools", "--allow-all-paths", "-p", "{prompt}"],
-        "interactive": ["copilot", "--allow-all", "-i", "{prompt}"],
-        "mailbox_event": "UserPromptSubmit",  # Claude-format accepted (native: userPromptSubmitted)
-        "hook_file": os.path.join(".github", "hooks", "enforcement.json"),
-        "nested": True,
-        "enforce": True,
-        "verified": True,  # copilot --help + copilot wiki cli-reference.md
-    },
-    "chatgpt": {
-        "binary": "codex",
-        "headless": ["codex", "exec", "--full-auto", "{prompt}"],
-        "interactive": ["codex", "{prompt}"],
-        "mailbox_event": "UserPromptSubmit",
-        "hook_file": os.path.join(".codex", "hooks.json"),
-        "nested": True,
-        "enforce": True,
-        # codex is not installed here; flags come from the chatgpt wiki
-        # (codex-exec.md), which is itself marked "not locally verified".
-        "verified": False,
-    },
-    "antigravity": {
-        "binary": "agy",
-        "headless": ["agy", "--dangerously-skip-permissions", "-p", "{prompt}"],
-        "interactive": ["agy", "--dangerously-skip-permissions", "-i", "{prompt}"],
-        "mailbox_event": "PreInvocation",  # fires before each agent turn
-        "hook_file": os.path.join(".agents", "hooks.json"),
-        "nested": True,
-        "enforce": True,
-        "verified": True,  # agy --help + antigravity wiki cli-reference.md
-    },
-}
+
+def _build_model_specs():
+    """Build MODEL_SPECS from the fleet registry, adding hook_file/nested from
+    the enforcement registry when available (falls back to registry.hook_file_for)."""
+    specs = {}
+    for m in _reg.all_models():
+        d = _reg.model_data(m)
+        # hook_file / nested come from enforcement registry when installed
+        hf = _reg.hook_file_for(m)
+        try:
+            from cli_enforcement.registry import hook_file_spec
+            _, nested = hook_file_spec(m)
+        except ImportError:
+            nested = True
+        specs[m] = {
+            "binary": d.get("binary"),
+            "headless": d.get("headless"),
+            "interactive": d.get("interactive"),
+            "mailbox_event": d.get("mailbox_event"),
+            "hook_file": hf,
+            "nested": nested,
+            "enforce": d.get("enforce", False),
+            "verified": d.get("verified", False),
+        }
+    return specs
+
+
+MODEL_SPECS = _build_model_specs()
 
 
 def spawn_command(model, prompt, mode="background"):

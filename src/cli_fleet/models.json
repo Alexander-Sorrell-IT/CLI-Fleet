@@ -1,0 +1,69 @@
+{
+  "_comment": "cli-fleet model registry. Each entry covers fleet-specific facts: how to launch the CLI headlessly and interactively, which hook event carries mailbox injection, and whether the headless flags have been verified on this machine. cli-wikia provides config_root; cli-enforcement provides hook_file and nested. When cli-collective is installed, a collective models.json can override any field here from one place.",
+  "models": {
+    "claude": {
+      "binary": "claude",
+      "headless": ["claude", "--dangerously-skip-permissions", "-p", "{prompt}"],
+      "interactive": ["claude", "--dangerously-skip-permissions", "{prompt}"],
+      "mailbox_event": "UserPromptSubmit",
+      "enforce": true,
+      "verified": true
+    },
+    "deepseek": {
+      "binary": "deepseek-code",
+      "headless": ["deepseek-code", "--dangerously-skip-permissions", "-p", "{prompt}"],
+      "interactive": ["deepseek-code", "--dangerously-skip-permissions", "{prompt}"],
+      "mailbox_event": "UserPromptSubmit",
+      "enforce": true,
+      "verified": true
+    },
+    "copilot": {
+      "binary": "copilot",
+      "headless": ["copilot", "--allow-all-tools", "--allow-all-paths", "-p", "{prompt}"],
+      "interactive": ["copilot", "--allow-all", "-i", "{prompt}"],
+      "mailbox_event": "UserPromptSubmit",
+      "enforce": true,
+      "verified": true
+    },
+    "chatgpt": {
+      "binary": "codex",
+      "headless": ["codex", "exec", "--full-auto", "{prompt}"],
+      "interactive": ["codex", "{prompt}"],
+      "mailbox_event": "UserPromptSubmit",
+      "enforce": true,
+      "verified": false
+    },
+    "gemini": {
+      "binary": "gemini",
+      "headless": ["gemini", "--approval-mode", "yolo", "-p", "{prompt}"],
+      "interactive": ["gemini", "--approval-mode", "yolo", "-i", "{prompt}"],
+      "mailbox_event": "BeforeAgent",
+      "enforce": true,
+      "verified": true
+    },
+    "antigravity": {
+      "binary": "agy",
+      "headless": ["agy", "--dangerously-skip-permissions", "-p", "{prompt}"],
+      "interactive": ["agy", "--dangerously-skip-permissions", "-i", "{prompt}"],
+      "mailbox_event": "PreInvocation",
+      "enforce": true,
+      "verified": true
+    },
+    "bob": {
+      "binary": null,
+      "headless": null,
+      "interactive": null,
+      "mailbox_event": null,
+      "enforce": false,
+      "verified": false
+    },
+    "grok": {
+      "binary": "grok",
+      "headless": ["grok", "-p", "{prompt}"],
+      "interactive": ["grok", "{prompt}"],
+      "mailbox_event": null,
+      "enforce": false,
+      "verified": true
+    }
+  }
+}
