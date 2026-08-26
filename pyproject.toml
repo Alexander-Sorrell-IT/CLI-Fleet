@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cli-fleet"
-version = "0.6.0"
+version = "0.7.0"
 description = "Launch multiple enforced Claude Code agent teams in parallel terminal windows, hardware-aware, coordinating via a shared filesystem mailbox."
 readme = "README.md"
 requires-python = ">=3.9"
