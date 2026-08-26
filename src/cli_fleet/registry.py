@@ -78,16 +78,16 @@ def spawn_command(model: str, prompt: str, mode: str = "background") -> Optional
 def hook_file_for(model: str) -> Optional[str]:
     """Hook file path (relative to team workdir) from cli-enforcement registry, or
     a best-effort fallback from cli-wikia. Returns None when neither is available."""
-    # Prefer enforcement registry (more authoritative for hook file location)
+    # Prefer enforcement deploy module (authoritative for hook file location)
     try:
-        from cli_enforcement.registry import hook_file_spec
-        hf, _ = hook_file_spec(model)
+        from cli_enforcement.deploy import HOOK_FILE_SPEC
+        hf, _ = HOOK_FILE_SPEC.get(model, ("settings.json", True))
         return hf
     except ImportError:
         pass
     # Fallback: derive from cli-wikia config_root + a conventional filename
     try:
-        from cli_wikia.registry import config_root
+        from cli_wikia.hooks import config_root
         root = config_root(model)
         if root:
             return os.path.join(root, "settings.json")
