@@ -8,8 +8,11 @@ import pytest
 
 from cli_fleet import cli, models as M
 
-# Models that have full fleet support (headless launch + mailbox + enforcement)
-FLEET_MODELS = ["claude", "gemini", "deepseek", "copilot", "chatgpt", "antigravity"]
+# Models with full fleet support (headless launch + mailbox + enforcement).
+# muse earned its place: `muse exec` and UserPromptSubmit hooks fire-proven.
+# qwen/bob have mailbox+enforce wired but headless is unverified (no API key
+# here); aider/opencode/grok/cursor are spawn-only (no mailbox event yet).
+FLEET_MODELS = ["claude", "gemini", "deepseek", "copilot", "chatgpt", "antigravity", "muse"]
 ALL_MODELS = FLEET_MODELS  # backward compat alias
 SCRIPTS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                        "src", "cli_fleet", "scripts")
@@ -18,7 +21,7 @@ SCRIPTS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 # --- MODEL_SPECS shape --------------------------------------------------------
 
 def test_model_specs_fleet_models_present():
-    """All six original fleet-capable models are still in MODEL_SPECS."""
+    """All fleet-capable models are still in MODEL_SPECS."""
     for m in FLEET_MODELS:
         assert m in M.MODEL_SPECS, f"missing fleet model: {m}"
 
@@ -44,6 +47,7 @@ def test_expected_mailbox_events():
     assert M.MODEL_SPECS["copilot"]["mailbox_event"] == "UserPromptSubmit"
     assert M.MODEL_SPECS["chatgpt"]["mailbox_event"] == "UserPromptSubmit"
     assert M.MODEL_SPECS["antigravity"]["mailbox_event"] == "PreInvocation"
+    assert M.MODEL_SPECS["muse"]["mailbox_event"] == "UserPromptSubmit"
 
 
 def test_chatgpt_marked_unverified():
@@ -66,7 +70,7 @@ def test_launch_sh_spawn_matches_python_spec(model, tmp_path):
         out = subprocess.run(
             ["bash", "-c",
              f'source /dev/stdin <<<"$(sed -n \'/^model_spawn_cmd()/,/^}}/p\' '
-             f'{SCRIPTS}/launch.sh)"; model_spawn_cmd {model} {mode}'],
+             f'\'{SCRIPTS}/launch.sh\')"; model_spawn_cmd {model} {mode}'],
             capture_output=True, text=True,
         )
         prefix = out.stdout.strip().split()

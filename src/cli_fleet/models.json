@@ -50,11 +50,11 @@
       "verified": true
     },
     "bob": {
-      "binary": null,
-      "headless": null,
-      "interactive": null,
-      "mailbox_event": null,
-      "enforce": false,
+      "binary": "bob",
+      "headless": ["bob", "run", "{prompt}"],
+      "interactive": ["bob", "-p", "{prompt}"],
+      "mailbox_event": "UserPromptSubmit",
+      "enforce": true,
       "verified": false
     },
     "grok": {
@@ -64,6 +64,46 @@
       "mailbox_event": null,
       "enforce": false,
       "verified": true
+    },
+    "muse": {
+      "binary": "muse",
+      "headless": ["muse", "exec", "{prompt}"],
+      "interactive": ["muse", "{prompt}"],
+      "mailbox_event": "UserPromptSubmit",
+      "enforce": true,
+      "verified": true
+    },
+    "qwen": {
+      "binary": "qwen",
+      "headless": ["qwen", "-y", "{prompt}"],
+      "interactive": ["qwen", "-y", "-i", "{prompt}"],
+      "mailbox_event": "UserPromptSubmit",
+      "enforce": true,
+      "verified": false
+    },
+    "aider": {
+      "binary": "aider",
+      "headless": ["aider", "--yes-always", "--exit", "--message", "{prompt}"],
+      "interactive": ["aider", "--message", "{prompt}"],
+      "mailbox_event": null,
+      "enforce": false,
+      "verified": false
+    },
+    "opencode": {
+      "binary": "opencode",
+      "headless": ["opencode", "run", "--format", "json", "{prompt}"],
+      "interactive": ["opencode", "--prompt", "{prompt}"],
+      "mailbox_event": null,
+      "enforce": false,
+      "verified": true
+    },
+    "cursor": {
+      "binary": "cursor-agent",
+      "headless": ["cursor-agent", "-p", "{prompt}"],
+      "interactive": ["cursor-agent", "{prompt}"],
+      "mailbox_event": null,
+      "enforce": false,
+      "verified": false
     }
   }
 }

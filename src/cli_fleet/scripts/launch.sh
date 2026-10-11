@@ -93,6 +93,37 @@ model_spawn_cmd() {
         antigravity)
             if [[ "$mode" == "background" ]]; then echo "agy --dangerously-skip-permissions -p"
             else echo "agy --dangerously-skip-permissions -i"; fi ;;
+        muse)
+            # Verified live: `muse exec` headless + UserPromptSubmit hooks fire
+            # (settings.json route and project plugin route, 2026-10-10).
+            if [[ "$mode" == "background" ]]; then echo "muse exec"
+            else echo "muse"; fi ;;
+        qwen)
+            # NOT verified live (headless cancels without provider auth here).
+            # Flags from qwen --help: -y yolo, positional prompt (-p deprecated).
+            if [[ "$mode" == "background" ]]; then echo "qwen -y"
+            else echo "qwen -y -i"; fi ;;
+        aider)
+            # NOT verified live (model call did not complete in sandbox).
+            # Flags from aider --help: --message + --exit one-shot.
+            if [[ "$mode" == "background" ]]; then echo "aider --yes-always --exit --message"
+            else echo "aider --message"; fi ;;
+        opencode)
+            # Mechanism verified live (session+JSON stream OK 2026-10-10);
+            # default model exo-free was deprecated server-side, pass -m
+            # with a live model if spawns fail on model rather than argv.
+            if [[ "$mode" == "background" ]]; then echo "opencode run --format json"
+            else echo "opencode --prompt"; fi ;;
+        bob)
+            # NOT verified live (headless needs BOB_API_KEY here).
+            # Flags from bob --help: `run` headless, `-p` prompt.
+            if [[ "$mode" == "background" ]]; then echo "bob run"
+            else echo "bob -p"; fi ;;
+        cursor)
+            # UNVERIFIED (cursor-agent not installed; added per user request).
+            # Assumed flags; confirm against cursor-agent --help on install.
+            if [[ "$mode" == "background" ]]; then echo "cursor-agent -p"
+            else echo "cursor-agent"; fi ;;
         *)
             echo "" ;;
     esac
